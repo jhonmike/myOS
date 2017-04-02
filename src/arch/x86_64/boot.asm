@@ -15,12 +15,8 @@ start:
 
     ; load the 64-bit GDT
     lgdt [gdt64.pointer]
-    
-    jmp gdt64.code:long_mode_start
 
-    ; print `OK` to screen
-    mov dword [0xb8000], 0x2f4b2f4f
-    hlt
+    jmp gdt64.code:long_mode_start
 
 set_up_page_tables:
     ; map first P4 entry to P3 table
@@ -34,18 +30,17 @@ set_up_page_tables:
     mov [p3_table], eax
 
     ; map each P2 entry to a huge 2MiB page
-    mov ecx, 0 ; couter variable
-
+    mov ecx, 0 ; counter variable
 .map_p2_table:
-    ; map ecx-th P2 entry to a huge page that starts at address 2MiB*ecx
-    mov eax, 0x200000 ; 2MiB
-    mul ecx ; start address of ecx-th page
+    ; map ecx-th P2 entry to a huge page that starts at address (2MiB * ecx)
+    mov eax, 0x200000  ; 2MiB
+    mul ecx            ; start address of ecx-th page
     or eax, 0b10000011 ; present + writable + huge
     mov [p2_table + ecx * 8], eax ; map ecx-th entry
 
-    inc ecx ; increase counter
-    cmp ecx, 512 ; if counter === 512, the whole P2 table is mapped
-    jne .map_p2_table ; else map the next entry
+    inc ecx            ; increase counter
+    cmp ecx, 512       ; if counter == 512, the whole P2 table is mapped
+    jne .map_p2_table  ; else map the next entry
 
     ret
 
@@ -57,6 +52,7 @@ enable_paging:
     ; enable PAE-flag in cr4 (Physical Address Extension)
     mov eax, cr4
     or eax, 1 << 5
+    mov cr4, eax
 
     ; set the long mode bit in the EFER MSR (model specific register)
     mov ecx, 0xC0000080
@@ -80,6 +76,7 @@ error:
     mov byte  [0xb800a], al
     hlt
 
+; Throw error 0 if eax doesn't contain the Multiboot 2 magic value (0x36d76289).
 check_multiboot:
     cmp eax, 0x36d76289
     jne .no_multiboot
@@ -88,9 +85,10 @@ check_multiboot:
     mov al, "0"
     jmp error
 
+; Throw error 1 if the CPU doesn't support the CPUID command.
 check_cpuid:
-    ; Check if CPUID is supported by attempting to flip the ID bit (bit 21)
-    ; in the FLAGS register. If we can flip it, CPUID is available.
+    ; Check if CPUID is supported by attempting to flip the ID bit (bit 21) in
+    ; the FLAGS register. If we can flip it, CPUID is available.
 
     ; Copy FLAGS in to EAX via stack
     pushfd
@@ -110,13 +108,13 @@ check_cpuid:
     pushfd
     pop eax
 
-    ; Restore FLAGS from the old version stored in ECX (i.e. flipping the
-    ; ID bit back if it was ever flipped).
+    ; Restore FLAGS from the old version stored in ECX (i.e. flipping the ID bit
+    ; back if it was ever flipped).
     push ecx
     popfd
 
-    ; Compare EAX and ECX. If they are equal then that means the bit
-    ; wasn't flipped, and CPUID isn't supported.
+    ; Compare EAX and ECX. If they are equal then that means the bit wasn't
+    ; flipped, and CPUID isn't supported.
     cmp eax, ecx
     je .no_cpuid
     ret
@@ -124,6 +122,7 @@ check_cpuid:
     mov al, "1"
     jmp error
 
+; Throw error 2 if the CPU doesn't support Long Mode.
 check_long_mode:
     ; test if extended processor info in available
     mov eax, 0x80000000    ; implicit argument for cpuid
@@ -156,8 +155,8 @@ stack_top:
 section .rodata
 gdt64:
     dq 0 ; zero entry
-.code: equ $ - gdt64
-    dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
+.code: equ $ - gdt64 ; new
+    dq (1<<44) | (1<<47) | (1<<43) | (1<<53) ; code segment
 .pointer:
-    dw $ - gdt64 -1
+    dw $ - gdt64 - 1
     dq gdt64
