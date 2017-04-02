@@ -19,13 +19,13 @@ start:
 set_up_page_tables:
     ; map first P4 entry to P3 table
     mov eax, p3_table
-    or eax, ob11 ; present + writable
-    mov [p4_tables], eax
+    or eax, 0b11 ; present + writable
+    mov [p4_table], eax
 
     ; map first P3 entry to P2 table
     mov eax, p2_table
     or eax, 0b11 ; present + writable
-    mov [p3_tables], eax
+    mov [p3_table], eax
 
     ; map each P2 entry to a huge 2MiB page
     mov ecx, 0 ; couter variable
